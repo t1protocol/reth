@@ -30,7 +30,7 @@ EF_TESTS_URL := https://github.com/ethereum/tests/archive/refs/tags/$(EF_TESTS_T
 EF_TESTS_DIR := ./testing/ef-tests/ethereum-tests
 
 # The docker image name
-DOCKER_IMAGE_NAME ?= ghcr.io/paradigmxyz/reth
+DOCKER_IMAGE_NAME ?= t1/reth
 
 # Features in reth/op-reth binary crate other than "ethereum" and "optimism"
 BIN_OTHER_FEATURES := asm-keccak jemalloc jemalloc-prof min-error-logs min-warn-logs min-info-logs min-debug-logs min-trace-logs
@@ -226,11 +226,11 @@ define docker_build_push
 	cp $(CARGO_TARGET_DIR)/aarch64-unknown-linux-gnu/$(PROFILE)/reth $(BIN_DIR)/arm64/reth
 
 	docker buildx build --file ./Dockerfile.cross . \
-		--platform linux/amd64,linux/arm64 \
+		--platform linux/amd64 \
 		--tag $(DOCKER_IMAGE_NAME):$(1) \
 		--tag $(DOCKER_IMAGE_NAME):$(2) \
 		--provenance=false \
-		--push
+		--output type=docker
 endef
 
 ##@ Optimism docker
@@ -270,7 +270,7 @@ define op_docker_build_push
 	cp $(CARGO_TARGET_DIR)/aarch64-unknown-linux-gnu/$(PROFILE)/op-reth $(BIN_DIR)/arm64/op-reth
 
 	docker buildx build --file ./DockerfileOp.cross . \
-		--platform linux/amd64,linux/arm64 \
+		--platform linux/amd64 \
 		--tag $(DOCKER_IMAGE_NAME):$(1) \
 		--tag $(DOCKER_IMAGE_NAME):$(2) \
 		--provenance=false \
