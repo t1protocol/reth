@@ -3,6 +3,7 @@
 #[global_allocator]
 static ALLOC: reth_cli_util::allocator::Allocator = reth_cli_util::allocator::new_allocator();
 
+use std::future::Future;
 use clap::{Args, Parser};
 use reth::{args::utils::DefaultChainSpecParser, cli::Cli};
 use reth_node_builder::{
@@ -13,6 +14,108 @@ use reth_node_builder::{
 };
 use reth_node_ethereum::{node::EthereumAddOns, EthereumNode};
 use reth_provider::providers::BlockchainProvider2;
+
+use alloy_sol_types::{sol, SolEventInterface, SolInterface};
+use alloy_primitives::{Address, address};
+use alloy_genesis::Genesis;
+use futures::StreamExt;
+use tracing::info;
+use reth_execution_types::Chain;
+use reth_primitives::{SealedBlockWithSenders, TransactionSigned};
+
+use reth_exex::{ExExContext, ExExEvent, ExExNotification};
+use reth_node_api::FullNodeComponents;
+
+sol!(CounterContract, "counter_abi.json");
+use CounterContract::{CounterContractEvents};
+const COUNTER_CONTRACT_ADDRESS: Address = address!("b4B46bdAA835F8E4b4d8e208B6559cD267851051");
+
+/// The initialization logic of the ExEx is just an async function.
+///
+/// During initialization you can wait for resources you need to be up for the ExEx to function,
+/// like a database connection.
+async fn exex_init<Node: FullNodeComponents>(
+    ctx: ExExContext<Node>,
+) -> eyre::Result<impl Future<Output = eyre::Result<()>>> {
+    Ok(exex(ctx))
+}
+
+/// An ExEx is just a future, which means you can implement all of it in an async function!
+///
+/// This ExEx just prints out whenever either a new chain of blocks being added, or a chain of
+/// blocks being re-orged. After processing the chain, emits an [ExExEvent::FinishedHeight] event.
+async fn exex<Node: FullNodeComponents>(mut ctx: ExExContext<Node>) -> eyre::Result<()> {
+    while let Some(notification) = ctx.notifications.next().await {
+        match &notification {
+            ExExNotification::ChainCommitted { new } => {
+                info!(committed_chain = ?new.range(), "Received commit");
+                notifyL1(&new).await;
+            }
+            ExExNotification::ChainReorged { old, new } => {
+                info!(from_chain = ?old.range(), to_chain = ?new.range(), "Received reorg");
+            }
+            ExExNotification::ChainReverted { old } => {
+                info!(reverted_chain = ?old.range(), "Received revert");
+            }
+        };
+
+        if let Some(committed_chain) = notification.committed_chain() {
+            ctx.events.send(ExExEvent::FinishedHeight(committed_chain.tip().num_hash()))?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Decode chain of blocks into a flattened list of receipt logs, filter only transactions to the
+/// Counter contract [COUNTER_CONTRACT_ADDRESS] and extract [CounterContractEvents].
+fn decode_chain_into_rollup_events(
+    chain: &Chain,
+) -> Vec<(&SealedBlockWithSenders, &TransactionSigned, CounterContractEvents)> {
+    chain
+        // Get all blocks and receipts
+        .blocks_and_receipts()
+        // Get all receipts
+        .flat_map(|(block, receipts)| {
+            block
+                .body
+                .transactions
+                .iter()
+                .zip(receipts.iter().flatten())
+                .map(move |(tx, receipt)| (block, tx, receipt))
+        })
+        // Get all logs from counter contract
+        .flat_map(|(block, tx, receipt)| {
+            receipt
+                .logs
+                .iter()
+                .filter(|log| log.address == COUNTER_CONTRACT_ADDRESS)
+                .map(move |log| (block, tx, log))
+        })
+        // Decode and filter counter events
+        .filter_map(|(block, tx, log)| {
+            CounterContractEvents::decode_raw_log(log.topics(), &log.data.data, true)
+                .ok()
+                .map(|event| (block, tx, event))
+        })
+        .collect()
+}
+
+
+async fn notifyL1(chain: &Chain) {
+    let events = decode_chain_into_rollup_events(chain);
+
+    for (_, tx, event) in events {
+        match event {
+            CounterContractEvents::Incremented(..) => {
+                info!("!!!Counter was incremented!!!");
+                ()
+            }
+            _ => (),
+        }
+    }
+}
+
 
 /// Parameters for configuring the engine
 #[derive(Debug, Clone, Args, PartialEq, Eq)]
@@ -51,9 +154,6 @@ fn main() {
 
     if let Err(err) =
         Cli::<DefaultChainSpecParser, EngineArgs>::parse().run(|builder, engine_args| async move {
-            let enable_engine2 = engine_args.experimental;
-            match enable_engine2 {
-                true => {
                     let engine_tree_config = TreeConfig::default()
                         .with_persistence_threshold(engine_args.persistence_threshold)
                         .with_memory_block_buffer_target(engine_args.memory_block_buffer_target);
@@ -61,6 +161,7 @@ fn main() {
                         .with_types_and_provider::<EthereumNode, BlockchainProvider2<_>>()
                         .with_components(EthereumNode::components())
                         .with_add_ons::<EthereumAddOns>()
+                        .install_exex("t1", exex_init)
                         .launch_with_fn(|builder| {
                             let launcher = EngineNodeLauncher::new(
                                 builder.task_executor().clone(),
@@ -71,12 +172,6 @@ fn main() {
                         })
                         .await?;
                     handle.node_exit_future.await
-                }
-                false => {
-                    let handle = builder.launch_node(EthereumNode::default()).await?;
-                    handle.node_exit_future.await
-                }
-            }
         })
     {
         eprintln!("Error: {err:?}");

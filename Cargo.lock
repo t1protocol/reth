@@ -615,6 +615,7 @@ version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b96ce28d2fde09abb6135f410c41fad670a3a770b6776869bd852f1df102e6f"
 dependencies = [
+ "alloy-json-abi",
  "alloy-sol-macro-input",
  "const-hex",
  "heck",
@@ -633,11 +634,13 @@ version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "906746396a8296537745711630d9185746c0b50c033d5e9d18b0a6eba3d53f90"
 dependencies = [
+ "alloy-json-abi",
  "const-hex",
  "dunce",
  "heck",
  "proc-macro2",
  "quote",
+ "serde_json",
  "syn 2.0.79",
  "syn-solidity",
 ]
@@ -6160,9 +6163,11 @@ version = "1.0.7"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
+ "alloy-genesis",
  "alloy-primitives",
  "alloy-rlp",
  "alloy-rpc-types",
+ "alloy-sol-types",
  "aquamarine",
  "backon",
  "clap",
@@ -6187,6 +6192,7 @@ dependencies = [
  "reth-errors",
  "reth-ethereum-payload-builder",
  "reth-evm",
+ "reth-execution-errors",
  "reth-execution-types",
  "reth-exex",
  "reth-fs-util",

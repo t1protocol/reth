@@ -64,6 +64,10 @@ reth-node-metrics.workspace = true
 reth-consensus.workspace = true
 reth-engine-util.workspace = true
 reth-prune.workspace = true
+reth-execution-errors.workspace = true
+
+# alloy
+alloy-sol-types.workspace = true
 
 # crypto
 alloy-eips.workspace = true
@@ -71,6 +75,7 @@ alloy-rlp.workspace = true
 alloy-rpc-types = { workspace = true, features = ["engine"] }
 alloy-consensus.workspace = true
 alloy-primitives.workspace = true
+alloy-genesis.workspace = true
 
 # tracing
 tracing.workspace = true

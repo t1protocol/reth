@@ -335,7 +335,7 @@ reth-evm-ethereum = { path = "crates/ethereum/evm" }
 reth-optimism-evm = { path = "crates/optimism/evm" }
 reth-execution-errors = { path = "crates/evm/execution-errors" }
 reth-execution-types = { path = "crates/evm/execution-types" }
-reth-exex = { path = "crates/exex/exex" }
+reth-exex = { path = "crates/exex/exex", features = ["serde"] }
 reth-exex-test-utils = { path = "crates/exex/test-utils" }
 reth-exex-types = { path = "crates/exex/types" }
 reth-fs-util = { path = "crates/fs-util" }
@@ -421,9 +421,9 @@ revm-primitives = { version = "10.0.0", features = [
 # eth
 alloy-chains = "0.1.32"
 alloy-dyn-abi = "0.8.0"
-alloy-primitives = { version = "0.8.4", default-features = false }
+alloy-primitives = { version = "0.8.4", default-features = false, features = ["rand", "rlp"] }
 alloy-rlp = "0.3.4"
-alloy-sol-types = "0.8.0"
+alloy-sol-types = { version = "0.8", features = ["json"] }
 alloy-trie = { version = "0.6", default-features = false }
 
 alloy-consensus = { version = "0.4.0", default-features = false }
