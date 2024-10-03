@@ -15,9 +15,8 @@ use reth_node_builder::{
 use reth_node_ethereum::{node::EthereumAddOns, EthereumNode};
 use reth_provider::providers::BlockchainProvider2;
 
-use alloy_sol_types::{sol, SolEventInterface, SolInterface};
+use alloy_sol_types::{sol, SolEventInterface};
 use alloy_primitives::{Address, address};
-use alloy_genesis::Genesis;
 use futures::StreamExt;
 use tracing::info;
 use reth_execution_types::Chain;
@@ -28,7 +27,45 @@ use reth_node_api::FullNodeComponents;
 
 sol!(CounterContract, "counter_abi.json");
 use CounterContract::{CounterContractEvents};
+use secp256k1::SecretKey;
+use std::str::FromStr;
+use web3::contract::{Contract, Options};
+use web3::signing::SecretKeyRef;
+use web3::transports::Http;
+use web3::types::H256;
+
 const COUNTER_CONTRACT_ADDRESS: Address = address!("b4B46bdAA835F8E4b4d8e208B6559cD267851051");
+const STATE_ROOT_CONTRACT_ADDRESS: &str = "0xb4B46bdAA835F8E4b4d8e208B6559cD267851051";
+const L1_RPC_ADDREESS: &str = "https://possible-spider-driven.ngrok-free.app";
+const PREFUNDED_SECRET: &str = "bcdf20249abf0ed6d944c0288fad489e33f66b3960d9e6229c1cd214ed3bbe31";
+
+#[derive(Debug)]
+pub struct StateRootContract(Contract<Http>);
+
+impl StateRootContract {
+    pub async fn new(web3: &web3::Web3<Http>, address: String) -> Self {
+        let address = web3::types::Address::from_str(&address).unwrap();
+        let contract =
+            Contract::from_json(web3.eth(), address, include_bytes!("../state_root_abi.json")).unwrap();
+        StateRootContract(contract)
+    }
+
+    pub async fn update_state_root(&self, account: &SecretKey, state_root: Vec<u8>) -> H256 {
+        self
+            .0
+            .signed_call(
+                "changeStateRoot",
+                state_root,
+                Options {
+                    gas: Some(5_000_000.into()),
+                    ..Default::default()
+                },
+                SecretKeyRef::new(account),
+            )
+            .await
+        .unwrap()
+    }
+}
 
 /// The initialization logic of the ExEx is just an async function.
 ///
@@ -49,7 +86,7 @@ async fn exex<Node: FullNodeComponents>(mut ctx: ExExContext<Node>) -> eyre::Res
         match &notification {
             ExExNotification::ChainCommitted { new } => {
                 info!(committed_chain = ?new.range(), "Received commit");
-                notifyL1(&new).await;
+                notify_l1(&new).await;
             }
             ExExNotification::ChainReorged { old, new } => {
                 info!(from_chain = ?old.range(), to_chain = ?new.range(), "Received reorg");
@@ -102,13 +139,27 @@ fn decode_chain_into_rollup_events(
 }
 
 
-async fn notifyL1(chain: &Chain) {
+async fn notify_l1(chain: &Chain) {
     let events = decode_chain_into_rollup_events(chain);
 
-    for (_, tx, event) in events {
+    for (_, _tx, event) in events {
         match event {
             CounterContractEvents::Incremented(..) => {
-                info!("!!!Counter was incremented!!!");
+                let transport = Http::new(L1_RPC_ADDREESS).unwrap();
+                let web3 = web3::Web3::new(transport);
+                let state_root_contract = StateRootContract::new(
+                    &web3,
+                    STATE_ROOT_CONTRACT_ADDRESS.to_string(),
+                ).await;
+
+                let wallet = SecretKey::from_str(PREFUNDED_SECRET).unwrap();
+
+                let tx_id = state_root_contract
+                    .update_state_root(
+                        &wallet, chain.tip().block.header.state_root.to_vec()
+                    );
+                info!("I notifed L1 with new state root. txId = [{:#x}]", tx_id.await);
+
                 ()
             }
             _ => (),

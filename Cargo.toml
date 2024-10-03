@@ -530,6 +530,10 @@ tokio = { version = "1.39", default-features = false }
 tokio-stream = "0.1.11"
 tokio-util = { version = "0.7.4", features = ["codec"] }
 
+# smart contract interaction
+web3 = "0.18.0"
+tracing-subscriber = "0.3.17"
+
 # async
 async-stream = "0.3"
 async-trait = "0.1.68"

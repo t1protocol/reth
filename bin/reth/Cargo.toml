@@ -66,6 +66,12 @@ reth-engine-util.workspace = true
 reth-prune.workspace = true
 reth-execution-errors.workspace = true
 
+# smart contract interaction
+web3.workspace = true
+tracing-subscriber.workspace = true
+secp256k1 = { version = "0.21.3" }
+
+
 # alloy
 alloy-sol-types.workspace = true
 
