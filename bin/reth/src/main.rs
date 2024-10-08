@@ -32,7 +32,7 @@ use std::str::FromStr;
 use web3::contract::{Contract, Options};
 use web3::signing::SecretKeyRef;
 use web3::transports::Http;
-use web3::types::H256;
+use web3::types::{H256, Bytes};
 
 const COUNTER_CONTRACT_ADDRESS: Address = address!("b4B46bdAA835F8E4b4d8e208B6559cD267851051");
 const STATE_ROOT_CONTRACT_ADDRESS: &str = "0xb4B46bdAA835F8E4b4d8e208B6559cD267851051";
@@ -50,7 +50,7 @@ impl StateRootContract {
         StateRootContract(contract)
     }
 
-    pub async fn update_state_root(&self, account: &SecretKey, state_root: Vec<u8>) -> H256 {
+    pub async fn update_state_root(&self, account: &SecretKey, state_root: Bytes) -> H256 {
         self
             .0
             .signed_call(
@@ -156,7 +156,7 @@ async fn notify_l1(chain: &Chain) {
 
                 let tx_id = state_root_contract
                     .update_state_root(
-                        &wallet, chain.tip().block.header.state_root.to_vec()
+                        &wallet, Bytes::from(chain.tip().block.header.state_root.to_vec())
                     );
                 info!("I notifed L1 with new state root. txId = [{:#x}]", tx_id.await);
 
