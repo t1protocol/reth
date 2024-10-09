@@ -86,6 +86,7 @@ async fn exex<Node: FullNodeComponents>(mut ctx: ExExContext<Node>) -> eyre::Res
         match &notification {
             ExExNotification::ChainCommitted { new } => {
                 info!(committed_chain = ?new.range(), "Received commit");
+                info!("Current stateRoot is [{}]", new.tip().block.header.state_root);
                 notify_l1(&new).await;
             }
             ExExNotification::ChainReorged { old, new } => {
