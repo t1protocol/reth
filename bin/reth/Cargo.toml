@@ -64,11 +64,9 @@ reth-node-metrics.workspace = true
 reth-consensus.workspace = true
 reth-engine-util.workspace = true
 reth-prune.workspace = true
-reth-execution-errors.workspace = true
 
 # smart contract interaction
-web3.workspace = true
-tracing-subscriber.workspace = true
+web3 = { version = "0.18.0", features = ["signing", "ws-tls-tokio", "ipc-tokio", "http-rustls-tls"], default-features = false }
 secp256k1 = { version = "0.21.3" }
 
 
