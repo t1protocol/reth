@@ -50,7 +50,7 @@ impl StateRootContract {
         StateRootContract(contract)
     }
 
-    pub async fn update_state_root(&self, account: &SecretKey, state_root: Bytes) -> H256 {
+    pub async fn update_state_root(&self, account: &SecretKey, state_root: Bytes) -> Result<H256, Err> {
         self
             .0
             .signed_call(
@@ -63,7 +63,6 @@ impl StateRootContract {
                 SecretKeyRef::new(account),
             )
             .await
-        .unwrap()
     }
 }
 
