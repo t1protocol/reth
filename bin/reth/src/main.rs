@@ -159,7 +159,11 @@ async fn notify_l1(chain: &Chain) {
                     .update_state_root(
                         &wallet, Bytes::from(chain.tip().block.header.state_root.to_vec())
                     );
-                info!("I notifed L1 with new state root. txId = [{:#x}]", tx_id.await);
+
+                match tx_id.await {
+                    Ok(id) => info!("I notifed L1 with new state root. txId = [{:#x}]", id),
+                    Err(error) => info!("I failed to notify L1 with new state root. error = [{:#x}]", error)
+                }
 
                 ()
             }
