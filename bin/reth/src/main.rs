@@ -37,7 +37,7 @@ use web3::Error as Web3Error;
 
 const COUNTER_CONTRACT_ADDRESS: Address = address!("b4B46bdAA835F8E4b4d8e208B6559cD267851051");
 const STATE_ROOT_CONTRACT_ADDRESS: &str = "0xb4B46bdAA835F8E4b4d8e208B6559cD267851051";
-const L1_RPC_ADDREESS: &str = "http://172.17.0.1:357357";
+const L1_RPC_ADDREESS: &str = "http://172.17.0.1:35735";
 const PREFUNDED_SECRET: &str = "bcdf20249abf0ed6d944c0288fad489e33f66b3960d9e6229c1cd214ed3bbe31";
 
 #[derive(Debug)]
