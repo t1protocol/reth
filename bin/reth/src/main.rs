@@ -35,16 +35,11 @@ use web3::transports::Http;
 use web3::types::{H256, Bytes};
 use web3::Error as Web3Error;
 
-const COUNTER_CONTRACT_ADDRESS: Address = address!("b4B46bdAA835F8E4b4d8e208B6559cD267851051");
-const STATE_ROOT_CONTRACT_ADDRESS: &str = "0xb4B46bdAA835F8E4b4d8e208B6559cD267851051";
-const L1_RPC_ADDREESS: &str = "http://172.17.0.1:35735";
-const PREFUNDED_SECRET: &str = "bcdf20249abf0ed6d944c0288fad489e33f66b3960d9e6229c1cd214ed3bbe31";
-
 #[derive(Debug)]
 pub struct StateRootContract(Contract<Http>);
 
 impl StateRootContract {
-    pub async fn new(web3: &web3::Web3<Http>, address: String) -> Self {
+    pub async fn new(web3: &web3::Web3<Http>, address: &str) -> Self {
         let address = web3::types::Address::from_str(&address).unwrap();
         let contract =
             Contract::from_json(web3.eth(), address, include_bytes!("../state_root_abi.json")).unwrap();
@@ -110,6 +105,9 @@ async fn exex<Node: FullNodeComponents>(mut ctx: ExExContext<Node>) -> eyre::Res
 fn decode_chain_into_rollup_events(
     chain: &Chain,
 ) -> Vec<(&SealedBlockWithSenders, &TransactionSigned, CounterContractEvents)> {
+    let counter_contract_address = std::env::var("COUNTER_CONTRACT_ADDRESS")
+        .expect("COUNTER_CONTRACT_ADDRESS environment variable not set");
+    let counter_contract_address = Address::from_str(&counter_contract_address).unwrap();
     chain
         // Get all blocks and receipts
         .blocks_and_receipts()
@@ -127,7 +125,7 @@ fn decode_chain_into_rollup_events(
             receipt
                 .logs
                 .iter()
-                .filter(|log| log.address == COUNTER_CONTRACT_ADDRESS)
+                .filter(|log| log.address == counter_contract_address)
                 .map(move |log| (block, tx, log))
         })
         // Decode and filter counter events
@@ -146,14 +144,19 @@ async fn notify_l1(chain: &Chain) {
     for (_, _tx, event) in events {
         match event {
             CounterContractEvents::Incremented(..) => {
-                let transport = Http::new(L1_RPC_ADDREESS).unwrap();
+                let transport = std::env::var("L1_RPC_ADDRESS")
+                    .expect("L1_RPC_ADDRESS environment variable not set");
+                let transport = Http::new(&transport).unwrap();
                 let web3 = web3::Web3::new(transport);
+                let state_root_contract = std::env::var("STATE_ROOT_CONTRACT_ADDRESS")
+                    .expect("STATE_ROOT_CONTRACT_ADDRESS environment variable not set");
                 let state_root_contract = StateRootContract::new(
                     &web3,
-                    STATE_ROOT_CONTRACT_ADDRESS.to_string(),
+                    &state_root_contract,
                 ).await;
-
-                let wallet = SecretKey::from_str(PREFUNDED_SECRET).unwrap();
+                let wallet = std::env::var("PREFUNDED_SECRET")
+                    .expect("PREFUNDED_SECRET environment variable not set");
+                let wallet = SecretKey::from_str(&wallet).unwrap();
 
                 let tx_id = state_root_contract
                     .update_state_root(
